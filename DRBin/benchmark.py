@@ -61,7 +61,7 @@ from operator import add as _add
 from itertools import product as _product
 import sys as _sys
 from math import sqrt as _sqrt
-import DRBin.DRBintools as _vambtools
+import DRBin.utils as _vambtools
 
 class Contig:
     """An object representing a contig mapping to a subject at position start:end.

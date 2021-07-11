@@ -25,7 +25,7 @@ from torch.optim import Adam as _Adam
 from torch.nn.functional import softmax as _softmax
 from torch.utils.data import DataLoader as _DataLoader
 from torch.utils.data.dataset import TensorDataset as _TensorDataset
-import DRBin.DRBintools as _vambtools
+import DRBin.utils as _vambtools
 
 if _torch.__version__ < '0.4':
     raise ImportError('PyTorch version must be 0.4 or newer')
