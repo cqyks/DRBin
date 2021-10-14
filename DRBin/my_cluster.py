@@ -151,41 +151,36 @@ def find_valley_ratio(histogram, peak_valley_ratio):
         success = None
         
     return success, maxima, early_minima
-
-
-def get_cluster_center(matrix, medoid, max_attempts):
-    futile_attempts = 0
-    tried = {medoid} # keep track of already-tried medoids
-    cluster, distances, average_distance = sample_medoid(matrix, medoid, _MEDOID_RADIUS)
-
-    while len(cluster) - len(tried) > 0 and futile_attempts < max_attempts:
-        sampled_medoid = random.choice(cluster)
-
-         # Prevent sampling same medoid multiple times.
-        while sampled_medoid in tried:
-            sampled_medoid = random.choice(cluster)
-
-        tried.add(sampled_medoid)
-
-        sampling = sample_medoid(matrix, sampled_medoid, _MEDOID_RADIUS)
-        sample_cluster, sample_distances, sample_avg = sampling
-
-        # If the mean distance of inner points of the sample is lower,
-        # we move the medoid and reset the futile_attempts count
-        if sample_avg < average_distance:
-            medoid = sampled_medoid
-            cluster = sample_cluster
-            average_distance = sample_avg
-            futile_attempts = 0
-            tried = {medoid}
-            distances = sample_distances
-
-        else:
-            futile_attempts += 1
-
-    return medoid, distances
 # end code from vamb
 
+def find_cluster_center(matrix, cluster, medoid, avg):
+    
+    for sample_point in cluster:
+        sample_cluster, sample_distances, average_distance = sample_medoid(matrix, sample_point, _MEDOID_RADIUS)
+        if (average_distance < avg):
+            #cluster = sample_cluster
+            medoid = sample_point
+            avg = average_distance
+            
+    return medoid
+
+def get_cluster_center_improve(matrix, medoid, max_attempts):
+    #futile_attempts = 0
+    #tried = {medoid} # keep track of already-tried medoids
+    cluster, distances, average_distance = sample_medoid(matrix, medoid, _MEDOID_RADIUS)
+    
+    search_medoid = find_cluster_center(matrix, cluster, medoid, average_distance)
+
+    while medoid != search_medoid:
+        
+        sampling = sample_medoid(matrix, search_medoid, _MEDOID_RADIUS)
+        cluster, distances, avg = sampling
+        medoid = search_medoid
+        
+        search_medoid = find_cluster_center(matrix, cluster, medoid, avg)
+        
+
+    return medoid, distances
 
 def cluster_points(latent, windowsize = 25):
     matrix = normalize(latent)
@@ -206,7 +201,7 @@ def cluster_points(latent, windowsize = 25):
         
         while threshold is None:
             seed = random.choice(contig_ids)
-            medoid, distances = get_cluster_center(matrix, seed, MAXSTEPS)
+            medoid, distances = get_cluster_center_improve(matrix, seed, MAXSTEPS)
             #distances = calc_distances(matrix, seed)
             histogram = torch.histc(distances, math.ceil(_XMAX/_DELTA_X), 0, _XMAX)
             histogram[0] -= 1
