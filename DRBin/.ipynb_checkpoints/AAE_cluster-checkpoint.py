@@ -217,7 +217,7 @@ def cluster_points(latent, windowsize = 25):
                     attempts.clear()
                     successes = 0
         #code from vamb
-                    
+        #threshold = (peak + threshold) / 2
         cluster_pts = smaller_indices(distances, threshold)
         removables = smaller_indices(distances, threshold)
         removables_idx = None
@@ -264,7 +264,8 @@ def filterclusters(clusters, lengthof, contig_idx_id):
     return filtered_bins, cluster_contig_id
 
 def perform_binning(output, contigs):
-    latent = np.loadtxt(f'{output}/DRBin_latent.txt', dtype=np.float32)
+    latent = np.load(f'{output}/metahitAAE_latents.npz')
+    latent = latent['arr_0']
     clusters = cluster_points(latent)
     clusters_output = {}
     
@@ -311,7 +312,7 @@ def perform_binning(output, contigs):
                 max_p = p
                 best_c = k
 
-        if best_c is not None and max_p > 2500:
+        if best_c is not None:
             filtered_bins[best_c].append(r)
     
     return filtered_bins

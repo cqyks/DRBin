@@ -8,3 +8,4 @@ from . import process
 from . import models
 from . import ultrametric
 from . import my_cluster
+from . import calculate_graph
