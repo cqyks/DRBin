@@ -7,20 +7,15 @@ import matplotlib.pyplot as plt
 import math
 import random
 import pickle
-#from tqdm import tqdm
 import os
 from Bio import SeqIO
 import shutil
 import random
 
-# TODO separate clustering unbinned 
-# points into a different function
-
 EPS = 1e-3
 MAXSTEPS = 25
 MINSUCCESSES = 20
 
-#code from vamb
 def smaller_indices(distances, threshold):
     arr = distances.numpy()
     indices = (arr <= threshold).nonzero()[0]
@@ -34,9 +29,6 @@ def normalize(matrix, inplace=False):
         matrix = torch.from_numpy(matrix)
 
     matrix = matrix.clone()
-
-    # If any rows are kept all zeros, the distance function will return 0.5 to all points
-    # inclusive itself, which can break the code in this module
     zeromask = matrix.sum(dim=1) == 0
     matrix[zeromask] = 1/matrix.shape[1]
     matrix /= (matrix.norm(dim=1).reshape(-1, 1) * (2 ** 0.5))
@@ -44,7 +36,6 @@ def normalize(matrix, inplace=False):
 
 
 def calc_distances(matrix, index):
-    "Return vecembeddedRoottor of cosine distances from rows of normalized matrix to given row."
     dists = 0.5 - matrix.matmul(matrix[index])
     dists[index] = 0.0  # avoid float rounding errors
     return dists
@@ -70,7 +61,6 @@ _NORMALPDF = _DELTA_X * torch.Tensor(
 
 
 def calc_densities(histogram, pdf=_NORMALPDF):
-    """Given an array of histogram, smoothes the histogram."""
     pdf_len = len(pdf)
 
     densities = torch.zeros(len(histogram) + pdf_len - 1)
@@ -82,11 +72,6 @@ def calc_densities(histogram, pdf=_NORMALPDF):
     return densities
 
 def sample_medoid(matrix, medoid, threshold):
-    """Returns:
-    - A vector of indices to points within threshold
-    - A vector of distances to all points
-    - The mean distance from medoid to the other points in the first vector
-    """
 
     distances = calc_distances(matrix, medoid)
     cluster = smaller_indices(distances, threshold)
@@ -98,6 +83,7 @@ def sample_medoid(matrix, medoid, threshold):
 
     return cluster, distances, average_distance
 
+#code from vamb
 def find_valley_ratio(histogram, peak_valley_ratio):
     peak_density = 0
     min_density = None
@@ -161,9 +147,8 @@ def find_cluster_center(matrix, cluster, medoid, avg):
             
     return medoid
 
-def get_cluster_center_improve(matrix, medoid, max_attempts):
-    #futile_attempts = 0
-    #tried = {medoid} # keep track of already-tried medoids
+def get_cluster_center_improve(matrix, medoid):
+    
     cluster, distances, average_distance = sample_medoid(matrix, medoid, _MEDOID_RADIUS)
     
     search_medoid = find_cluster_center(matrix, cluster, medoid, average_distance)
@@ -179,7 +164,7 @@ def get_cluster_center_improve(matrix, medoid, max_attempts):
 
     return medoid, distances
 
-def cluster_points(latent, windowsize = 25):
+def cluster_points(latent, windowsize = 200):
     matrix = normalize(latent)
     clusters = defaultdict(list)
     attempts = deque(maxlen=windowsize)
@@ -196,10 +181,9 @@ def cluster_points(latent, windowsize = 25):
         medoid = None
         distances = None
         
-        #code from vamb
         while threshold is None:
             seed = random.choice(contig_ids)
-            medoid, distances = get_cluster_center_improve(matrix, seed, MAXSTEPS)
+            medoid, distances = get_cluster_center_improve(matrix, seed)
             #distances = calc_distances(matrix, seed)
             histogram = torch.histc(distances, math.ceil(_XMAX/_DELTA_X), 0, _XMAX)
             histogram[0] -= 1
@@ -216,7 +200,6 @@ def cluster_points(latent, windowsize = 25):
                     peak_valley_ratio += 0.1
                     attempts.clear()
                     successes = 0
-        #code from vamb
                     
         cluster_pts = smaller_indices(distances, threshold)
         removables = smaller_indices(distances, threshold)
@@ -311,7 +294,7 @@ def perform_binning(output, contigs):
                 max_p = p
                 best_c = k
 
-        if best_c is not None and max_p > 2500:
+        if best_c is not None:
             filtered_bins[best_c].append(r)
     
     return filtered_bins

@@ -45,32 +45,6 @@ def process_tu(data, nb_nodes):
 
     return features, adjacency, labels, sizes, masks
 
-def micro_f1(logits, labels):
-    # Compute predictions
-    preds = torch.round(nn.Sigmoid()(logits))
-    
-    # Cast to avoid trouble
-    preds = preds.long()
-    labels = labels.long()
-
-    # Count true positives, true negatives, false positives, false negatives
-    tp = torch.nonzero(preds * labels).shape[0] * 1.0
-    tn = torch.nonzero((preds - 1) * (labels - 1)).shape[0] * 1.0
-    fp = torch.nonzero(preds * (labels - 1)).shape[0] * 1.0
-    fn = torch.nonzero((preds - 1) * labels).shape[0] * 1.0
-
-    # Compute micro-f1 score
-    prec = tp / (tp + fp)
-    rec = tp / (tp + fn)
-    f1 = (2 * prec * rec) / (prec + rec)
-    return f1
-
-"""
- Prepare adjacency matrix by expanding up to a given neighbourhood.
- This will insert loops on every node.
- Finally, the matrix is converted to bias vectors.
- Expected shape: [graph, nodes, nodes]
-"""
 def adj_to_bias(adj, sizes, nhood=1):
     nb_graphs = adj.shape[0]
     mt = np.empty(adj.shape)
@@ -101,45 +75,6 @@ def sample_mask(idx, l):
     mask = np.zeros(l)
     mask[idx] = 1
     return np.array(mask, dtype=np.bool)
-
-def load_data(dataset_str): # {'pubmed', 'citeseer', 'cora'}
-    """Load data."""
-    names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
-    objects = []
-    for i in range(len(names)):
-        with open("data/ind.{}.{}".format(dataset_str, names[i]), 'rb') as f:
-            if sys.version_info > (3, 0):
-                objects.append(pkl.load(f, encoding='latin1'))
-            else:
-                objects.append(pkl.load(f))
-
-    x, y, tx, ty, allx, ally, graph = tuple(objects)
-    test_idx_reorder = parse_index_file("data/ind.{}.test.index".format(dataset_str))
-    test_idx_range = np.sort(test_idx_reorder)
-
-    if dataset_str == 'citeseer':
-        # Fix citeseer dataset (there are some isolated nodes in the graph)
-        # Find isolated nodes, add them as zero-vecs into the right position
-        test_idx_range_full = range(min(test_idx_reorder), max(test_idx_reorder)+1)
-        tx_extended = sp.lil_matrix((len(test_idx_range_full), x.shape[1]))
-        tx_extended[test_idx_range-min(test_idx_range), :] = tx
-        tx = tx_extended
-        ty_extended = np.zeros((len(test_idx_range_full), y.shape[1]))
-        ty_extended[test_idx_range-min(test_idx_range), :] = ty
-        ty = ty_extended
-
-    features = sp.vstack((allx, tx)).tolil()
-    features[test_idx_reorder, :] = features[test_idx_range, :]
-    adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
-
-    labels = np.vstack((ally, ty))
-    labels[test_idx_reorder, :] = labels[test_idx_range, :]
-
-    idx_test = test_idx_range.tolist()
-    idx_train = range(len(y))
-    idx_val = range(len(y), len(y)+500)
-
-    return adj, features, labels, idx_train, idx_val, idx_test
 
 def sparse_to_tuple(sparse_mx, insert_batch=False):
     """Convert sparse matrix to tuple representation."""
